@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing Heatmap Tool</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Karla', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #212529;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #002855;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            color: #495057;
+            font-size: 1.1em;
+        }
+        
+        .controls-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+        
+        .file-upload-area {
+            border: 3px dashed #0077C0;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #F0F7FF;
+            margin-bottom: 25px;
+        }
+        
+        .file-upload-area:hover {
+            background-color: #E1F0FF;
+            border-color: #002855;
+        }
+        
+        .file-upload-area.dragover {
+            background-color: #D0E7FF;
+            border-color: #002855;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: #0077C0;
+            margin-bottom: 15px;
+        }
+        
+        .chart-settings {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .chart-settings h3 {
+            color: #002855;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+        
+        .settings-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .setting-item label {
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        
+        .setting-item input[type="text"],
+        .setting-item input[type="number"],
+        .setting-item select {
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            background-color: white;
+            transition: border-color 0.3s;
+            font-family: 'Karla', sans-serif;
+        }
+        
+        .setting-item input:hover,
+        .setting-item select:hover {
+            border-color: #0077C0;
+        }
+        
+        .setting-item input:focus,
+        .setting-item select:focus {
+            outline: none;
+            border-color: #002855;
+            box-shadow: 0 0 0 3px rgba(0, 119, 192, 0.15);
+        }
+        
+        .field-mappings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .field-mapping {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .field-mapping label {
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        
+        .field-mapping select {
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            background-color: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            font-family: 'Karla', sans-serif;
+        }
+        
+        .threshold-settings {
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .threshold-settings h3 {
+            color: #002855;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .threshold-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .color-scheme-selector {
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            font-family: 'Karla', sans-serif;
+        }
+        
+        .btn-primary {
+            background-color: #ff5722;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #e64a19;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 87, 34, 0.3);
+        }
+        
+        .btn-secondary {
+            background-color: #2196F3;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #0b7dda;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+        
+        .btn-tertiary {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .btn-tertiary:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        #heatmap {
+            width: 100%;
+            height: 850px;
+        }
+        
+        .status-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .status-success {
+            background-color: #D4EDDA;
+            color: #155724;
+            border: 1px solid #C3E6CB;
+        }
+        
+        .status-error {
+            background-color: #F8D7DA;
+            color: #721C24;
+            border: 1px solid #F5C6CB;
+        }
+        
+        .sample-data-info {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #1976d2;
+        }
+        
+        .actions {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .color-preview {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            margin-left: 10px;
+            vertical-align: middle;
+            border: 1px solid #ddd;
+        }
+        
+        .threshold-info {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔥 Marketing Heatmap Tool</h1>
+            <p>Create professional heatmaps from your marketing data - no programming required!</p>
+        </div>
+        
+        <div class="controls-panel">
+            <div class="file-upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <h3>Drop your CSV file here or click to browse</h3>
+                <p>Your data stays private - all processing happens in your browser</p>
+                <input type="file" id="fileInput" class="file-input" accept=".csv">
+            </div>
+            
+            <div id="statusMessage"></div>
+            
+            <div id="mappingControls" style="display: none;">
+                <div class="chart-settings">
+                    <h3>Chart Settings</h3>
+                    <div class="settings-row">
+                        <div class="setting-item" style="grid-column: 1 / -1;">
+                            <label>Chart Title:</label>
+                            <input type="text" id="chartTitle" value="Marketing Campaign Performance Heatmap" placeholder="Enter chart title">
+                        </div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-bottom: 20px; color: #002855; font-weight: 600;">Data Mappings</h3>
+                <div class="field-mappings">
+                    <div class="field-mapping">
+                        <label>X-Axis (Columns):</label>
+                        <select id="xAxisField"></select>
+                    </div>
+                    <div class="field-mapping">
+                        <label>Y-Axis (Rows):</label>
+                        <select id="yAxisField"></select>
+                    </div>
+                    <div class="field-mapping">
+                        <label>Heatmap Values:</label>
+                        <select id="valueField"></select>
+                    </div>
+                </div>
+                
+                <div class="threshold-settings">
+                    <h3>Color Settings</h3>
+                    
+                    <div class="color-scheme-selector">
+                        <div class="setting-item">
+                            <label>Color Scheme:</label>
+                            <select id="colorScheme" onchange="updateColorPreview()">
+                                <option value="RdYlGn">Red-Yellow-Green (Performance)</option>
+                                <option value="Blues">Blue Hues (Professional)</option>
+                                <option value="Viridis">Viridis (Scientific)</option>
+                                <option value="Magma">Magma (High Contrast)</option>
+                                <option value="Cividis">Cividis (Colorblind-friendly)</option>
+                                <option value="Turbo">Turbo (Rainbow)</option>
+                            </select>
+                        </div>
+                        <div id="colorPreview" style="margin-top: 10px;">
+                            <span>Preview: </span>
+                            <span class="color-preview" id="lowColor"></span>
+                            <span style="margin: 0 5px;">→</span>
+                            <span class="color-preview" id="midColor"></span>
+                            <span style="margin: 0 5px;">→</span>
+                            <span class="color-preview" id="highColor"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="threshold-row">
+                        <div class="setting-item">
+                            <label>Low Threshold (Poor → Average):</label>
+                            <input type="number" id="lowThreshold" value="0.3" min="0" max="1" step="0.05">
+                            <div class="threshold-info">Values below this will be shown in the first color</div>
+                        </div>
+                        <div class="setting-item">
+                            <label>High Threshold (Average → Good):</label>
+                            <input type="number" id="highThreshold" value="0.7" min="0" max="1" step="0.05">
+                            <div class="threshold-info">Values above this will be shown in the third color</div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item" style="margin-top: 15px;">
+                        <label>
+                            <input type="checkbox" id="normalizeData" checked> 
+                            Normalize data (0-1 scale) - recommended for comparing different metrics
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="updateHeatmap()">Update Heatmap</button>
+                    <button class="btn btn-secondary" onclick="exportEmbed()">Export Embed</button>
+                    <button class="btn btn-tertiary" onclick="downloadPNG()">Download as PNG (300 DPI)</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-container" id="chartContainer" style="display: none;">
+            <div id="heatmap"></div>
+        </div>
+    </div>
+
+    <script>
+        let csvData = [];
+        let processedData = {};
+        let currentData = null;
+        let currentLayout = null;
+        
+        // Color schemes with 3 colors each
+        const colorSchemes = {
+            'RdYlGn': ['#d73027', '#fee08b', '#1a9850'],
+            'Blues': ['#deebf7', '#3182bd', '#08519c'],
+            'Viridis': ['#440154', '#21908c', '#fde725'],
+            'Magma': ['#000004', '#b63679', '#fcfdbf'],
+            'Cividis': ['#00204d', '#7a7b7d', '#ffea46'],
+            'Turbo': ['#30123b', '#46b4af', '#fde725']
+        };
+        
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            if (!file.name.endsWith('.csv')) {
+                showStatus('Please upload a CSV file', 'error');
+                return;
+            }
+            
+            showStatus(`Loading ${file.name}...`, 'success');
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                parseCSV(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+        
+        function parseCSV(content) {
+            Papa.parse(content, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                delimitersToGuess: [',', '\t', '|', ';'],
+                complete: (results) => {
+                    csvData = results.data.filter(row => {
+                        return Object.values(row).some(val => val !== null && val !== '');
+                    });
+                    
+                    if (csvData.length === 0) {
+                        showStatus('No valid data found in CSV', 'error');
+                        return;
+                    }
+                    
+                    // Clean column names (remove whitespace)
+                    const cleanData = [];
+                    const headers = Object.keys(csvData[0]);
+                    const cleanHeaders = headers.map(h => h.trim());
+                    
+                    csvData.forEach(row => {
+                        const cleanRow = {};
+                        headers.forEach((oldKey, index) => {
+                            cleanRow[cleanHeaders[index]] = row[oldKey];
+                        });
+                        cleanData.push(cleanRow);
+                    });
+                    
+                    csvData = cleanData;
+                    
+                    setupControls();
+                    showStatus(`Loaded ${csvData.length} rows successfully!`, 'success');
+                    document.getElementById('mappingControls').style.display = 'block';
+                }
+            });
+        }
+        
+        function setupControls() {
+            const columns = Object.keys(csvData[0]);
+            const selects = ['xAxisField', 'yAxisField', 'valueField'];
+            
+            selects.forEach((selectId, index) => {
+                const select = document.getElementById(selectId);
+                select.innerHTML = '';
+                
+                columns.forEach(col => {
+                    const option = document.createElement('option');
+                    option.value = col;
+                    option.textContent = col;
+                    select.appendChild(option);
+                });
+                
+                // Set default selection to different columns
+                if (columns[index]) {
+                    select.value = columns[index];
+                }
+            });
+            
+            updateColorPreview();
+            updateHeatmap();
+        }
+        
+        function updateColorPreview() {
+            const scheme = document.getElementById('colorScheme').value;
+            const colors = colorSchemes[scheme];
+            
+            document.getElementById('lowColor').style.backgroundColor = colors[0];
+            document.getElementById('midColor').style.backgroundColor = colors[1];
+            document.getElementById('highColor').style.backgroundColor = colors[2];
+        }
+        
+        function updateHeatmap() {
+            const xField = document.getElementById('xAxisField').value;
+            const yField = document.getElementById('yAxisField').value;
+            const valueField = document.getElementById('valueField').value;
+            const chartTitle = document.getElementById('chartTitle').value || 'Marketing Campaign Performance Heatmap';
+            const colorScheme = document.getElementById('colorScheme').value;
+            const normalize = document.getElementById('normalizeData').checked;
+            const lowThreshold = parseFloat(document.getElementById('lowThreshold').value);
+            const highThreshold = parseFloat(document.getElementById('highThreshold').value);
+            
+            if (!xField || !yField || !valueField) {
+                showStatus('Please select all required fields', 'error');
+                return;
+            }
+            
+            // Process data for heatmap
+            processedData = processDataForHeatmap(xField, yField, valueField, normalize);
+            
+            if (!processedData.z || processedData.z.length === 0) {
+                showStatus('No valid data to display', 'error');
+                return;
+            }
+            
+            // Create colorscale with thresholds
+            const colors = colorSchemes[colorScheme];
+            const colorscale = [
+                [0, colors[0]],
+                [lowThreshold, colors[0]],
+                [lowThreshold, colors[1]],
+                [highThreshold, colors[1]],
+                [highThreshold, colors[2]],
+                [1, colors[2]]
+            ];
+            
+            // Create heatmap
+            const data = [{
+                type: 'heatmap',
+                z: processedData.z,
+                x: processedData.x,
+                y: processedData.y,
+                colorscale: colorscale,
+                text: processedData.text,
+                texttemplate: '%{text}',
+                textfont: {
+                    size: 10,
+                    family: 'Karla, sans-serif'
+                },
+                xgap: 2,
+                ygap: 2,
+                hoverongaps: false,
+                hovertemplate: '<b>%{y}</b><br>%{x}: %{z:.2f}<extra></extra>',
+                colorbar: {
+                    orientation: 'h',
+                    title: {
+                        text: normalize ? 'Performance Score' : valueField,
+                        side: 'top',
+                        font: {
+                            size: 14,
+                            family: 'Karla, sans-serif'
+                        }
+                    },
+                    thickness: 20,
+                    len: 0.5,
+                    x: 0.5,
+                    xanchor: 'center',
+                    y: -0.15,
+                    yanchor: 'top',
+                    tickfont: {
+                        size: 12,
+                        family: 'Karla, sans-serif'
+                    },
+                    tickvals: [0, lowThreshold, highThreshold, 1],
+                    ticktext: ['0.0<br>Poor', lowThreshold.toFixed(1), highThreshold.toFixed(1), '1.0<br>Good']
+                }
+            }];
+            
+            const layout = {
+                title: {
+                    text: chartTitle,
+                    x: 0.5,
+                    xanchor: 'center',
+                    font: {
+                        size: 20,
+                        family: 'Karla, sans-serif',
+                        weight: 600
+                    }
+                },
+                xaxis: {
+                    title: {
+                        text: xField,
+                        font: {
+                            size: 16,
+                            family: 'Karla, sans-serif'
+                        }
+                    },
+                    tickangle: -45,
+                    side: 'bottom',
+                    tickfont: {
+                        size: 14,
+                        family: 'Karla, sans-serif'
+                    },
+                    showline: false,
+                    showgrid: false,
+                    ticks: 'outside',
+                    ticklen: 5,
+                    tickcolor: '#666'
+                },
+                yaxis: {
+                    title: {
+                        text: yField,
+                        font: {
+                            size: 16,
+                            family: 'Karla, sans-serif'
+                        }
+                    },
+                    tickfont: {
+                        size: 14,
+                        family: 'Karla, sans-serif'
+                    },
+                    autorange: 'reversed',
+                    showline: false,
+                    showgrid: false,
+                    ticks: 'outside',
+                    ticklen: 5,
+                    tickcolor: '#666'
+                },
+                margin: {
+                    l: 180,
+                    r: 50,
+                    t: 80,
+                    b: 150
+                },
+                plot_bgcolor: 'white',
+                paper_bgcolor: 'white',
+                font: {
+                    family: 'Karla, sans-serif'
+                }
+            };
+            
+            const config = {
+                displayModeBar: false,
+                responsive: true
+            };
+            
+            // Store for export
+            currentData = data;
+            currentLayout = layout;
+            
+            Plotly.newPlot('heatmap', data, layout, config);
+            
+            document.getElementById('chartContainer').style.display = 'block';
+            showStatus('Heatmap updated successfully!', 'success');
+        }
+        
+        function processDataForHeatmap(xField, yField, valueField, normalize) {
+            // Create pivot table
+            const pivotData = {};
+            const xValues = new Set();
+            const yValues = new Set();
+            
+            csvData.forEach(row => {
+                const x = row[xField];
+                const y = row[yField];
+                const value = parseFloat(row[valueField]);
+                
+                if (x && y && !isNaN(value)) {
+                    xValues.add(x);
+                    yValues.add(y);
+                    
+                    if (!pivotData[y]) pivotData[y] = {};
+                    
+                    // If duplicate, average the values
+                    if (pivotData[y][x]) {
+                        pivotData[y][x] = (pivotData[y][x] + value) / 2;
+                    } else {
+                        pivotData[y][x] = value;
+                    }
+                }
+            });
+            
+            // Convert to arrays
+            const xArray = Array.from(xValues).sort();
+            const yArray = Array.from(yValues).sort();
+            const zArray = [];
+            const textArray = [];
+            
+            // Find min/max for normalization
+            let minValue = Infinity;
+            let maxValue = -Infinity;
+            
+            yArray.forEach(y => {
+                const row = [];
+                xArray.forEach(x => {
+                    const value = pivotData[y][x] || 0;
+                    row.push(value);
+                    if (value < minValue) minValue = value;
+                    if (value > maxValue) maxValue = value;
+                });
+                zArray.push(row);
+            });
+            
+            // Normalize if requested
+            yArray.forEach((y, i) => {
+                const textRow = [];
+                xArray.forEach((x, j) => {
+                    if (normalize && maxValue > minValue) {
+                        zArray[i][j] = (zArray[i][j] - minValue) / (maxValue - minValue);
+                    }
+                    textRow.push(zArray[i][j].toFixed(2));
+                });
+                textArray.push(textRow);
+            });
+            
+            return {
+                x: xArray,
+                y: yArray,
+                z: zArray,
+                text: textArray
+            };
+        }
+        
+        function downloadPNG() {
+            if (!currentData || !currentLayout) {
+                showStatus('Please create a heatmap first', 'error');
+                return;
+            }
+            
+            Plotly.downloadImage('heatmap', {
+                format: 'png',
+                filename: 'marketing_heatmap',
+                height: 800,
+                width: 1200,
+                scale: 4.17  // 300/72 for 300 DPI
+            });
+            
+            showStatus('Downloading high-resolution PNG...', 'success');
+        }
+        
+        function exportEmbed() {
+            if (!currentData || !currentLayout) {
+                showStatus('Please create a heatmap first', 'error');
+                return;
+            }
+            
+            const chartTitle = document.getElementById('chartTitle').value || 'Marketing Campaign Performance Heatmap';
+            
+            const embedHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${chartTitle}</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"><\/script>
+    <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Karla', sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #heatmap {
+            width: 100%;
+            height: 850px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="heatmap"></div>
+    </div>
+    <script>
+        const data = ${JSON.stringify(currentData)};
+        const layout = ${JSON.stringify(currentLayout)};
+        Plotly.newPlot('heatmap', data, layout, {
+            displayModeBar: false,
+            staticPlot: false,
+            responsive: true
+        });
+    <\/script>
+</body>
+</html>`;
+            
+            const blob = new Blob([embedHTML], {type: 'text/html'});
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'marketing_heatmap_embed.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showStatus('Embedded HTML file downloaded!', 'success');
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+        
+        // Initialize color preview
+        updateColorPreview();
+    </script>
+</body>
+</html>

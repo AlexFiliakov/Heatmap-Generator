@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing Campaign Performance Heatmap Generator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style src="https://www.morganstanley.com/etc.clientlibs/msdotcomr4/clientlibs/clientlib-base.min.3365c6913c50fcaebd256ccfc85cad61.css" type="text/css" />
+    <style src="https://www.morganstanley.com/etc.clientlibs/msdotcomr4/clientlibs/components/site.min.aa98bd39418de30249aed876b0de61b4.css" type="text/css" />
+    <style>
+        /* Lucide icons - inline SVG icons to work offline */
+        .lucide-icon {
+            width: 1em;
+            height: 1em;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        body {
+            font-family: ms_gloriola_ii_std_semibold, sans-serif;
+        }
+
+        text {
+            font-family: ms_gloriola_ii_std_semibold, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Inline SVG icons for offline use
+        const icons = {
+            Download: () => (
+                <svg className="lucide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+            ),
+            Upload: () => (
+                <svg className="lucide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                </svg>
+            ),
+            Info: () => (
+                <svg className="lucide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+            ),
+            Palette: () => (
+                <svg className="lucide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="13.5" cy="6.5" r=".5"/>
+                    <circle cx="17.5" cy="10.5" r=".5"/>
+                    <circle cx="8.5" cy="7.5" r=".5"/>
+                    <circle cx="6.5" cy="12.5" r=".5"/>
+                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+                </svg>
+            )
+        };
+
+        const { useState, useRef, useEffect } = React;
+
+        const HeatmapGenerator = () => {
+            const [csvData, setCsvData] = useState(null);
+            const [columns, setColumns] = useState([]);
+            const [selectedXAxis, setSelectedXAxis] = useState('');
+            const [selectedYAxis, setSelectedYAxis] = useState('');
+            const [selectedValue, setSelectedValue] = useState('');
+            const [colorScheme, setColorScheme] = useState('RdYlGn');
+            const [title, setTitle] = useState('Marketing Campaign Performance Heatmap');
+            const [isDragging, setIsDragging] = useState(false);
+            const svgRef = useRef(null);
+            const containerRef = useRef(null);
+
+            const colorSchemes = {
+                'RdYlGn': ['#d7191c', '#fdae61', '#ffffbf', '#a6d96a', '#1a9641'],
+                'Blues': ['#f7fbff', '#c6dbef', '#6baed6', '#2171b5', '#08306b'],
+                'RdBu': ['#b2182b', '#f4a582', '#fddbc7', '#d1e5f0', '#2166ac'],
+                'YlOrRd': ['#ffffb2', '#fed976', '#feb24c', '#fd8d3c', '#f03b20'],
+                'Viridis': ['#440154', '#3e4989', '#31688e', '#35b779', '#fde725']
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                setIsDragging(true);
+            };
+
+            const handleDragLeave = (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+            };
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                const file = e.dataTransfer.files[0];
+                if (file && file.type === 'text/csv') {
+                    parseCSV(file);
+                }
+            };
+
+            const handleFileSelect = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    parseCSV(file);
+                }
+            };
+
+            const parseCSV = (file) => {
+                Papa.parse(file, {
+                    complete: (results) => {
+                        if (results.data && results.data.length > 0) {
+                            setCsvData(results.data);
+                            const headers = Object.keys(results.data[0]);
+                            setColumns(headers);
+                            // Auto-select first three columns
+                            if (headers.length >= 3) {
+                                setSelectedXAxis(headers[0]);
+                                setSelectedYAxis(headers[1]);
+                                setSelectedValue(headers[2]);
+                            }
+                        }
+                    },
+                    header: true,
+                    skipEmptyLines: true,
+                    dynamicTyping: true
+                });
+            };
+
+            const createHeatmap = () => {
+                if (!csvData || !selectedXAxis || !selectedYAxis || !selectedValue) return;
+
+                const margin = { top: 80, right: 100, bottom: 150, left: 150 };
+                const width = 800 - margin.left - margin.right;
+                const height = 600 - margin.top - margin.bottom;
+
+                // Clear previous chart
+                d3.select(svgRef.current).selectAll("*").remove();
+
+                const svg = d3.select(svgRef.current)
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom);
+
+                const g = svg.append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+                // Get unique values for axes
+                const xValues = [...new Set(csvData.map(d => d[selectedXAxis]))].filter(d => d !== null);
+                const yValues = [...new Set(csvData.map(d => d[selectedYAxis]))].filter(d => d !== null);
+
+                // Create scales
+                const xScale = d3.scaleBand()
+                    .domain(xValues)
+                    .range([0, width])
+                    .padding(0.05);
+
+                const yScale = d3.scaleBand()
+                    .domain(yValues)
+                    .range([0, height])
+                    .padding(0.05);
+
+                // Get min and max values for color scale
+                const values = csvData.map(d => +d[selectedValue]).filter(d => !isNaN(d));
+                const minValue = d3.min(values);
+                const maxValue = d3.max(values);
+
+                const colorScale = d3.scaleSequential()
+                    .interpolator(d3.interpolateRgbBasis(colorSchemes[colorScheme]))
+                    .domain([minValue, maxValue]);
+
+                // Create data map for easy lookup
+                const dataMap = {};
+                csvData.forEach(d => {
+                    const key = `${d[selectedXAxis]}_${d[selectedYAxis]}`;
+                    dataMap[key] = +d[selectedValue];
+                });
+
+                // Draw cells
+                g.selectAll("rect")
+                    .data(xValues.flatMap(x => yValues.map(y => ({ x, y }))))
+                    .enter().append("rect")
+                    .attr("x", d => xScale(d.x))
+                    .attr("y", d => yScale(d.y))
+                    .attr("width", xScale.bandwidth())
+                    .attr("height", yScale.bandwidth())
+                    .attr("fill", d => {
+                        const value = dataMap[`${d.x}_${d.y}`];
+                        return value !== undefined ? colorScale(value) : "#f0f0f0";
+                    })
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 2);
+
+                // Add text labels
+                g.selectAll("text.cell-text")
+                    .data(xValues.flatMap(x => yValues.map(y => ({ x, y }))))
+                    .enter().append("text")
+                    .attr("class", "cell-text")
+                    .attr("x", d => xScale(d.x) + xScale.bandwidth() / 2)
+                    .attr("y", d => yScale(d.y) + yScale.bandwidth() / 2)
+                    .attr("text-anchor", "middle")
+                    .attr("alignment-baseline", "middle")
+                    .style("font-size", "12px")
+                    .style("fill", d => {
+                        const value = dataMap[`${d.x}_${d.y}`];
+                        if (value !== undefined) {
+                            const normalizedValue = (value - minValue) / (maxValue - minValue);
+                            return normalizedValue > 0.5 ? "#fff" : "#000";
+                        }
+                        return "#666";
+                    })
+                    .text(d => {
+                        const value = dataMap[`${d.x}_${d.y}`];
+                        return value !== undefined ? value.toFixed(1) : "";
+                    });
+
+                // Add X axis
+                g.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(xScale))
+                    .selectAll("text")
+                    .style("text-anchor", "end")
+                    .attr("dx", "-.8em")
+                    .attr("dy", ".15em")
+                    .attr("transform", "rotate(-45)")
+                    .style("font-size", "12px");
+
+                // Add Y axis
+                g.append("g")
+                    .call(d3.axisLeft(yScale))
+                    .selectAll("text")
+                    .style("font-size", "12px");
+
+                // Add title
+                svg.append("text")
+                    .attr("x", (width + margin.left + margin.right) / 2)
+                    .attr("y", margin.top / 2)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "20px")
+                    .style("font-weight", "bold")
+                    .text(title);
+
+                // Add axis labels
+                svg.append("text")
+                    .attr("transform", `translate(${(width + margin.left + margin.right) / 2}, ${height + margin.top + margin.bottom - 40})`)
+                    .style("text-anchor", "middle")
+                    .style("font-size", "14px")
+                    .style("font-weight", "bold")
+                    .text(selectedXAxis);
+
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 20)
+                    .attr("x", -(height + margin.top + margin.bottom) / 2)
+                    .style("text-anchor", "middle")
+                    .style("font-size", "14px")
+                    .style("font-weight", "bold")
+                    .text(selectedYAxis);
+
+                // Add color legend
+                const legendWidth = 200;
+                const legendHeight = 20;
+                
+                const legendScale = d3.scaleLinear()
+                    .domain([maxValue, minValue])
+                    .range([0, legendHeight]);
+
+                const legendAxis = d3.axisRight(legendScale)
+                    .ticks(5);
+
+                const legend = svg.append("g")
+                    // .attr("transform", `translate(${width + margin.left + 40}, ${margin.top + (height - legendHeight) / 2})`);
+                    .attr("transform", `translate(${margin.left + (width - legendWidth) / 2}, ${height + margin.top + 130})`);
+
+                // Create gradient for legend
+                const gradientId = "gradient-" + Date.now();
+                const gradient = svg.append("defs")
+                    .append("linearGradient")
+                    .attr("id", gradientId)
+                    .attr("x1", "0%")
+                    .attr("y1", "100%")
+                    .attr("x2", "0%")
+                    .attr("y2", "0%");
+
+                for (let i = 0; i <= 10; i++) {
+                    gradient.append("stop")
+                        .attr("offset", `${(i / 10) * 100}%`)
+                        .attr("stop-color", colorScale(maxValue - (i / 10) * (maxValue - minValue)));
+                }
+
+                legend.append("rect")
+                    .attr("width", legendWidth)
+                    .attr("height", legendHeight)
+                    .attr("fill", `url(#${gradientId})`);
+
+                legend.append("g")
+                    .attr("transform", `translate(${legendWidth}, 0)`)
+                    .call(legendAxis);
+
+                legend.append("text")
+                    .attr("transform", `translate(${legendWidth / 2}, 0)`)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "12px")
+                    .style("font-weight", "bold")
+                    .text(selectedValue);
+            };
+
+            useEffect(() => {
+                if (csvData && selectedXAxis && selectedYAxis && selectedValue) {
+                    createHeatmap();
+                }
+            }, [csvData, selectedXAxis, selectedYAxis, selectedValue, colorScheme, title]);
+
+            const downloadHeatmap = () => {
+                const svg = svgRef.current;
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const canvas = document.createElement("canvas");
+                const ctx = canvas.getContext("2d");
+                const img = new Image();
+                
+                canvas.width = svg.getAttribute("width");
+                canvas.height = svg.getAttribute("height");
+                
+                img.onload = () => {
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    canvas.toBlob((blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${title.replace(/\s+/g, '_')}_heatmap.png`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
+                };
+                
+                img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-8">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                            <h1 className="text-3xl font-bold text-gray-800 mb-6">Marketing Campaign Performance Heatmap Generator</h1>
+                            
+                            {!csvData ? (
+                                <div
+                                    className={`border-2 border-dashed ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'} rounded-lg p-12 text-center cursor-pointer transition-colors`}
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                    onClick={() => document.getElementById('fileInput').click()}
+                                >
+                                    <div className="mx-auto h-12 w-12 text-gray-400 mb-4 flex justify-center">
+                                        <icons.Upload />
+                                    </div>
+                                    <p className="text-lg text-gray-600 mb-2">Drag and drop your CSV file here</p>
+                                    <p className="text-sm text-gray-500">or click to select a file</p>
+                                    <input
+                                        id="fileInput"
+                                        type="file"
+                                        accept=".csv"
+                                        onChange={handleFileSelect}
+                                        className="hidden"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                X-Axis (Horizontal)
+                                            </label>
+                                            <select
+                                                value={selectedXAxis}
+                                                onChange={(e) => setSelectedXAxis(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">Select column</option>
+                                                {columns.map(col => (
+                                                    <option key={col} value={col}>{col}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Y-Axis (Vertical)
+                                            </label>
+                                            <select
+                                                value={selectedYAxis}
+                                                onChange={(e) => setSelectedYAxis(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">Select column</option>
+                                                {columns.map(col => (
+                                                    <option key={col} value={col}>{col}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Value (Numbers)
+                                            </label>
+                                            <select
+                                                value={selectedValue}
+                                                onChange={(e) => setSelectedValue(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">Select column</option>
+                                                {columns.map(col => (
+                                                    <option key={col} value={col}>{col}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Chart Title
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={title}
+                                                onChange={(e) => setTitle(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                <span className="inline-block mr-1"><icons.Palette /></span>
+                                                Color Scheme
+                                            </label>
+                                            <select
+                                                value={colorScheme}
+                                                onChange={(e) => setColorScheme(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="RdYlGn">Red-Yellow-Green (Performance)</option>
+                                                <option value="Blues">Blues (Single Color)</option>
+                                                <option value="RdBu">Red-Blue (Diverging)</option>
+                                                <option value="YlOrRd">Yellow-Orange-Red (Heat)</option>
+                                                <option value="Viridis">Viridis (Scientific)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={() => document.getElementById('fileInput').click()}
+                                            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center"
+                                        >
+                                            <span className="mr-2"><icons.Upload /></span>
+                                            Load New Data
+                                        </button>
+                                        
+                                        <button
+                                            onClick={downloadHeatmap}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                                            disabled={!selectedXAxis || !selectedYAxis || !selectedValue}
+                                        >
+                                            <span className="mr-2"><icons.Download /></span>
+                                            Download as PNG
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="bg-blue-50 border border-blue-200 rounded-md p-4 flex items-start">
+                                        <span className="mr-2 mt-0.5"><icons.Info /></span>
+                                        <span className="text-sm text-blue-800">
+                                            Tip: The downloaded PNG can be directly inserted into PowerPoint presentations. 
+                                            Higher performance values will appear in warmer/brighter colors.
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {csvData && (
+                            <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
+                                <svg ref={svgRef}></svg>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<HeatmapGenerator />, document.getElementById('root'));
+    </script>
+</body>
+</html>

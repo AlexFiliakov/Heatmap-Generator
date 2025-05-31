@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing Campaign Performance Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Karla', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .controls {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 14px;
+        }
+        input[type="text"], input[type="file"], select, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Karla', sans-serif;
+            font-size: 14px;
+        }
+        select {
+            background-color: white;
+            cursor: pointer;
+        }
+        .button-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            font-family: 'Karla', sans-serif;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 0 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        #updateChart {
+            background-color: #ff5722;
+            margin-bottom: 10px;
+        }
+        #updateChart:hover {
+            background-color: #e64a19;
+        }
+        #exportEmbed {
+            background-color: #2196F3;
+        }
+        #exportEmbed:hover {
+            background-color: #0b7dda;
+        }
+        #downloadPNG {
+            background-color: #4CAF50;
+        }
+        #downloadPNG:hover {
+            background-color: #45a049;
+        }
+        #heatmap {
+            width: 100%;
+            height: 850px;
+        }
+        .info-text {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+        .sample-data-info {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #1976d2;
+        }
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 768px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <h2 style="margin-top: 0; color: #333; font-family: 'Karla', sans-serif;">Heatmap Configuration</h2>
+            
+            <div class="sample-data-info">
+                📊 Using sample data. Upload your own CSV file to visualize your campaign performance data.
+            </div>
+            
+            <div class="control-group">
+                <label for="fileInput">Upload CSV File:</label>
+                <input type="file" id="fileInput" accept=".csv">
+            </div>
+            
+            <div class="two-column">
+                <div class="control-group">
+                    <label for="partnerColumn">Partner Column Name:</label>
+                    <input type="text" id="partnerColumn" value="Partner" placeholder="e.g., Partner, Company, Agency">
+                </div>
+                
+                <div class="control-group">
+                    <label for="chartTitle">Chart Title:</label>
+                    <input type="text" id="chartTitle" value="Marketing Campaign Performance by Partner" placeholder="Enter custom title">
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label for="metricColumns">Metric Columns (comma-separated):</label>
+                <input type="text" id="metricColumns" value="Click Rate,Conversion Rate,ROI,Customer Satisfaction,Retention Rate,Revenue Growth" placeholder="e.g., CTR,Conversion,Revenue">
+            </div>
+            
+            <div class="two-column">
+                <div class="control-group">
+                    <label for="colorScheme">Color Scheme:</label>
+                    <select id="colorScheme">
+                        <option value="RdYlGn">Red-Yellow-Green (Performance)</option>
+                        <option value="Blues">Blue Hues (Professional)</option>
+                        <option value="Viridis">Viridis (Scientific)</option>
+                        <option value="Magma">Magma (High Contrast)</option>
+                        <option value="Cividis">Cividis (Colorblind-friendly)</option>
+                        <option value="Turbo">Turbo (Rainbow)</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="normalization">Data Normalization:</label>
+                    <select id="normalization">
+                        <option value="true">Normalized (0-1 scale)</option>
+                        <option value="false">Raw Values</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="button-container" style="margin-top: 20px;">
+                <button id="updateChart" onclick="updateHeatmap()">Update Heatmap</button>
+            </div>
+        </div>
+        
+        <div class="button-container">
+            <button id="exportEmbed" onclick="exportEmbedded()">Export Embed</button>
+            <button id="downloadPNG" onclick="downloadPNG()">Download as PNG</button>
+        </div>
+        
+        <div id="heatmap"></div>
+        
+        <div class="info-text">
+            Interactive heatmap with customizable colors, fields, and title • Export at 300 DPI for high-quality printing
+        </div>
+    </div>
+
+    <script>
+        // Store current data globally
+        let currentData = null;
+        let currentLayout = null;
+        
+        // Default sample data
+        let csvData = generateSampleData();
+        
+        // Initialize with sample data
+        updateHeatmap();
+        
+        // File upload handler
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        csvData = parseCSV(event.target.result);
+                        document.querySelector('.sample-data-info').textContent = 
+                            `✓ Loaded: ${file.name} (${csvData.length - 1} rows)`;
+                        document.querySelector('.sample-data-info').style.backgroundColor = '#c8e6c9';
+                        document.querySelector('.sample-data-info').style.color = '#2e7d32';
+                        updateHeatmap();
+                    } catch (error) {
+                        alert('Error parsing CSV file: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+        
+        function generateSampleData() {
+            const partners = [
+                'Acme Insurance Group', 'Global Risk Partners', 'Premier Coverage Inc',
+                'SafeGuard Associates', 'United Brokers Network', 'Atlas Insurance Co',
+                'Pinnacle Risk Management', 'Horizon Insurance Partners', 'Everest Underwriters',
+                'Summit Insurance Group', 'Apex Coverage Solutions', 'Vanguard Insurance',
+                'Sterling Risk Advisors', 'Phoenix Insurance Network', 'Quantum Underwriting',
+                'Meridian Insurance Co', 'Eclipse Risk Partners', 'Zenith Coverage Group',
+                'Fortress Insurance LLC', 'Titan Risk Management'
+            ];
+            
+            const headers = ['Partner', 'Click Rate', 'Conversion Rate', 'ROI', 
+                           'Customer Satisfaction', 'Retention Rate', 'Revenue Growth'];
+            
+            const data = [headers];
+            
+            for (let i = 0; i < partners.length; i++) {
+                const row = [partners[i]];
+                for (let j = 1; j < headers.length; j++) {
+                    const baseValue = Math.random() * 0.6 + 0.2;
+                    const partnerBonus = (20 - i) * 0.02;
+                    const metricVariation = Math.sin(j + i) * 0.1;
+                    let value = Math.max(0, Math.min(1, baseValue + partnerBonus + metricVariation));
+                    
+                    // Adjust for ROI (should be around 1.0-2.0)
+                    if (headers[j] === 'ROI') {
+                        value = value + 0.7;
+                    }
+                    
+                    row.push(value);
+                }
+                data.push(row);
+            }
+            
+            return data;
+        }
+        
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            return lines.map(line => {
+                // Handle both comma and tab delimited files
+                const delimiter = line.includes('\t') ? '\t' : ',';
+                return line.split(delimiter).map(cell => cell.trim().replace(/^"|"$/g, ''));
+            });
+        }
+        
+        function updateHeatmap() {
+            const partnerColumn = document.getElementById('partnerColumn').value;
+            const metricColumns = document.getElementById('metricColumns').value.split(',').map(s => s.trim());
+            const colorScheme = document.getElementById('colorScheme').value;
+            const normalize = document.getElementById('normalization').value === 'true';
+            const chartTitle = document.getElementById('chartTitle').value;
+            
+            // Find column indices
+            const headers = csvData[0];
+            const partnerIndex = headers.findIndex(h => h === partnerColumn);
+            
+            if (partnerIndex === -1) {
+                alert(`Partner column "${partnerColumn}" not found in data. Available columns: ${headers.join(', ')}`);
+                return;
+            }
+            
+            const metricIndices = metricColumns.map(col => {
+                const index = headers.findIndex(h => h === col);
+                if (index === -1) {
+                    console.warn(`Metric column "${col}" not found`);
+                }
+                return index;
+            }).filter(i => i !== -1);
+            
+            if (metricIndices.length === 0) {
+                alert('No valid metric columns found');
+                return;
+            }
+            
+            // Extract data
+            const partners = [];
+            const zValues = [];
+            const textValues = [];
+            
+            for (let i = 1; i < csvData.length; i++) {
+                partners.push(csvData[i][partnerIndex]);
+                const row = [];
+                const textRow = [];
+                
+                for (const metricIndex of metricIndices) {
+                    let value = parseFloat(csvData[i][metricIndex]);
+                    if (isNaN(value)) value = 0;
+                    row.push(value);
+                    textRow.push(value.toFixed(2));
+                }
+                
+                zValues.push(row);
+                textValues.push(textRow);
+            }
+            
+            // Normalize if requested
+            if (normalize) {
+                for (let j = 0; j < metricIndices.length; j++) {
+                    const column = zValues.map(row => row[j]);
+                    const min = Math.min(...column);
+                    const max = Math.max(...column);
+                    const range = max - min;
+                    
+                    if (range > 0) {
+                        for (let i = 0; i < zValues.length; i++) {
+                            zValues[i][j] = (zValues[i][j] - min) / range;
+                            textValues[i][j] = zValues[i][j].toFixed(2);
+                        }
+                    }
+                }
+            }
+            
+            // Create colorscale based on scheme
+            let colorscale;
+            if (colorScheme === 'RdYlGn') {
+                colorscale = [
+                    [0, '#d73027'],
+                    [0.5, '#fee08b'],
+                    [1, '#1a9850']
+                ];
+            } else if (colorScheme === 'Blues') {
+                colorscale = [
+                    [0, '#deebf7'],
+                    [0.5, '#3182bd'],
+                    [1, '#08519c']
+                ];
+            } else if (colorScheme === 'Viridis') {
+                colorscale = [
+                    [0, '#440154'],
+                    [0.5, '#21908c'],
+                    [1, '#fde725']
+                ];
+            } else if (colorScheme === 'Magma') {
+                colorscale = [
+                    [0, '#000004'],
+                    [0.5, '#b63679'],
+                    [1, '#fcfdbf']
+                ];
+            } else if (colorScheme === 'Cividis') {
+                colorscale = [
+                    [0, '#00204d'],
+                    [0.5, '#7a7b7d'],
+                    [1, '#ffea46']
+                ];
+            } else if (colorScheme === 'Turbo') {
+                colorscale = [
+                    [0, '#30123b'],
+                    [0.5, '#28b463'],
+                    [1, '#fee825']
+                ];
+            }
+            
+            // Create the heatmap data
+            const data = [{
+                type: 'heatmap',
+                z: zValues,
+                x: metricColumns.filter((col, i) => metricIndices.includes(headers.indexOf(col))),
+                y: partners,
+                colorscale: colorscale,
+                text: textValues,
+                texttemplate: '%{text}',
+                textfont: {
+                    size: 10,
+                    family: 'Karla, sans-serif'
+                },
+                xgap: 2,
+                ygap: 2,
+                hoverongaps: false,
+                hovertemplate: '<b>%{y}</b><br>%{x}: %{z:.2f}<extra></extra>',
+                colorbar: {
+                    orientation: 'h',
+                    title: {
+                        text: normalize ? 'Performance Score' : 'Value',
+                        side: 'top',
+                        font: {
+                            size: 14,
+                            family: 'Karla, sans-serif'
+                        }
+                    },
+                    thickness: 20,
+                    len: 0.5,
+                    x: 0.5,
+                    xanchor: 'center',
+                    y: -0.15,
+                    yanchor: 'top',
+                    tickfont: {
+                        size: 12,
+                        family: 'Karla, sans-serif'
+                    }
+                }
+            }];
+            
+            // Layout configuration
+            const layout = {
+                title: {
+                    text: chartTitle,
+                    x: 0.5,
+                    xanchor: 'center',
+                    font: {
+                        size: 20,
+                        family: 'Karla, sans-serif',
+                        weight: 600
+                    }
+                },
+                xaxis: {
+                    title: {
+                        text: 'Performance Metrics',
+                        font: {
+                            size: 16,
+                            family: 'Karla, sans-serif'
+                        }
+                    },
+                    tickangle: -45,
+                    side: 'bottom',
+                    tickfont: {
+                        size: 14,
+                        family: 'Karla, sans-serif'
+                    },
+                    showline: false,
+                    showgrid: false,
+                    ticks: 'outside',
+                    ticklen: 5,
+                    tickcolor: '#666'
+                },
+                yaxis: {
+                    title: {
+                        text: 'Partners',
+                        font: {
+                            size: 16,
+                            family: 'Karla, sans-serif'
+                        }
+                    },
+                    tickfont: {
+                        size: 14,
+                        family: 'Karla, sans-serif'
+                    },
+                    autorange: 'reversed',
+                    showline: false,
+                    showgrid: false,
+                    ticks: 'outside',
+                    ticklen: 5,
+                    tickcolor: '#666'
+                },
+                margin: {
+                    l: 180,
+                    r: 50,
+                    t: 80,
+                    b: 150
+                },
+                plot_bgcolor: 'white',
+                paper_bgcolor: 'white',
+                font: {
+                    family: 'Karla, sans-serif'
+                }
+            };
+            
+            const config = {
+                displayModeBar: false,
+                responsive: true
+            };
+            
+            // Store current data and layout
+            currentData = data;
+            currentLayout = layout;
+            
+            // Create the plot
+            Plotly.newPlot('heatmap', data, layout, config);
+        }
+        
+        function downloadPNG() {
+            Plotly.downloadImage('heatmap', {
+                format: 'png',
+                filename: 'campaign_performance_heatmap',
+                height: 800,
+                width: 1200,
+                scale: 4.17  // 300/72 for 300 DPI
+            });
+        }
+        
+        function exportEmbedded() {
+            if (!currentData || !currentLayout) {
+                alert('Please generate a heatmap first');
+                return;
+            }
+            
+            const chartTitle = document.getElementById('chartTitle').value;
+            
+            const embeddedHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${chartTitle}</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"><\/script>
+    <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Karla', sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #heatmap {
+            width: 100%;
+            height: 850px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="heatmap"></div>
+    </div>
+    <script>
+        const data = ${JSON.stringify(currentData)};
+        const layout = ${JSON.stringify(currentLayout)};
+        Plotly.newPlot('heatmap', data, layout, {
+            displayModeBar: false,
+            staticPlot: false,
+            responsive: true
+        });
+    <\/script>
+</body>
+</html>`;
+            
+            const blob = new Blob([embeddedHTML], {type: 'text/html'});
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'heatmap_embedded.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

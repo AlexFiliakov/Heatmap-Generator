@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing Campaign Performance Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Karla', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            font-family: 'Karla', sans-serif;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 0 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        #exportEmbed {
+            background-color: #2196F3;
+        }
+        #exportEmbed:hover {
+            background-color: #0b7dda;
+        }
+        #downloadPNG {
+            background-color: #4CAF50;
+        }
+        #downloadPNG:hover {
+            background-color: #45a049;
+        }
+        #heatmap {
+            width: 100%;
+            height: 850px;
+        }
+        .info-text {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="button-container">
+            <button id="exportEmbed" onclick="exportEmbedded()">Export Embed</button>
+            <button id="downloadPNG" onclick="downloadPNG()">Download as PNG</button>
+        </div>
+        <div id="heatmap"></div>
+        <div class="info-text">
+            Interactive heatmap with 300 DPI export capability for high-quality printing
+        </div>
+    </div>
+
+    <script>
+        // Generate sample data
+        const partners = [
+            'Acme Insurance Group', 'Global Risk Partners', 'Premier Coverage Inc',
+            'SafeGuard Associates', 'United Brokers Network', 'Atlas Insurance Co',
+            'Pinnacle Risk Management', 'Horizon Insurance Partners', 'Everest Underwriters',
+            'Summit Insurance Group', 'Apex Coverage Solutions', 'Vanguard Insurance',
+            'Sterling Risk Advisors', 'Phoenix Insurance Network', 'Quantum Underwriting',
+            'Meridian Insurance Co', 'Eclipse Risk Partners', 'Zenith Coverage Group',
+            'Fortress Insurance LLC', 'Titan Risk Management'
+        ];
+        
+        const metrics = [
+            'Click Rate', 'Conversion Rate', 'ROI', 'Customer Satisfaction',
+            'Retention Rate', 'Revenue Growth'
+        ];
+        
+        // Generate performance data
+        const generateValue = (partnerIndex, metricIndex) => {
+            const baseValue = Math.random() * 0.6 + 0.2;
+            const partnerBonus = (20 - partnerIndex) * 0.02;
+            const metricVariation = Math.sin(metricIndex + partnerIndex) * 0.1;
+            const value = Math.max(0, Math.min(1, baseValue + partnerBonus + metricVariation));
+            return Math.round(value * 100) / 100;
+        };
+        
+        const zValues = [];
+        const textValues = [];
+        
+        for (let i = 0; i < partners.length; i++) {
+            const row = [];
+            const textRow = [];
+            for (let j = 0; j < metrics.length; j++) {
+                const value = generateValue(i, j);
+                row.push(value);
+                textRow.push(value.toFixed(2));
+            }
+            zValues.push(row);
+            textValues.push(textRow);
+        }
+        
+        // Define custom colorscale with thresholds
+        const colorscale = [
+            [0, '#d73027'],      // Red
+            [0.3, '#d73027'],
+            [0.3, '#fee08b'],    // Yellow
+            [0.7, '#fee08b'],
+            [0.7, '#1a9850'],    // Green
+            [1, '#1a9850']
+        ];
+        
+        // Create the heatmap data
+        const data = [{
+            type: 'heatmap',
+            z: zValues,
+            x: metrics,
+            y: partners,
+            colorscale: colorscale,
+            text: textValues,
+            texttemplate: '%{text}',
+            textfont: {
+                size: 10,
+                family: 'Karla, sans-serif'
+            },
+            xgap: 2,  // 2px gap between cells
+            ygap: 2,  // 2px gap between cells
+            hoverongaps: false,
+            hovertemplate: '<b>%{y}</b><br>%{x}: %{z:.2f}<extra></extra>',
+            colorbar: {
+                orientation: 'h',  // Horizontal colorbar
+                title: {
+                    text: 'Performance Score',
+                    side: 'top',
+                    font: {
+                        size: 14,
+                        family: 'Karla, sans-serif'
+                    }
+                },
+                thickness: 20,
+                len: 0.5,
+                x: 0.5,
+                xanchor: 'center',
+                y: -0.15,
+                yanchor: 'top',
+                tickfont: {
+                    size: 12,
+                    family: 'Karla, sans-serif'
+                },
+                tickmode: 'linear',
+                tick0: 0,
+                dtick: 0.2,
+                tickvals: [0, 0.3, 0.7, 1],
+                ticktext: ['0.0<br>Poor', '0.3', '0.7', '1.0<br>Good']
+            }
+        }];
+        
+        // Layout configuration
+        const layout = {
+            title: {
+                text: 'Marketing Campaign Performance by Partner',
+                x: 0.5,
+                xanchor: 'center',
+                font: {
+                    size: 20,
+                    family: 'Karla, sans-serif',
+                    weight: 600
+                }
+            },
+            xaxis: {
+                title: {
+                    text: 'Performance Metrics',
+                    font: {
+                        size: 16,
+                        family: 'Karla, sans-serif'
+                    }
+                },
+                tickangle: -45,
+                side: 'bottom',
+                tickfont: {
+                    size: 14,
+                    family: 'Karla, sans-serif'
+                },
+                showline: false,  // No axis line
+                showgrid: false,
+                ticks: 'outside',
+                ticklen: 5,
+                tickcolor: '#666'
+            },
+            yaxis: {
+                title: {
+                    text: 'Partners',
+                    font: {
+                        size: 16,
+                        family: 'Karla, sans-serif'
+                    }
+                },
+                tickfont: {
+                    size: 14,
+                    family: 'Karla, sans-serif'
+                },
+                autorange: 'reversed',
+                showline: false,  // No axis line
+                showgrid: false,
+                ticks: 'outside',
+                ticklen: 5,
+                tickcolor: '#666'
+            },
+            margin: {
+                l: 180,
+                r: 50,
+                t: 80,
+                b: 150  // Extra space for horizontal colorbar
+            },
+            plot_bgcolor: 'white',
+            paper_bgcolor: 'white',
+            font: {
+                family: 'Karla, sans-serif'
+            }
+        };
+        
+        const config = {
+            displayModeBar: false,
+            responsive: true
+        };
+        
+        // Create the plot
+        Plotly.newPlot('heatmap', data, layout, config);
+        
+        // Export functions
+        function downloadPNG() {
+            Plotly.downloadImage('heatmap', {
+                format: 'png',
+                filename: 'campaign_performance_heatmap',
+                height: 800,
+                width: 1200,
+                scale: 4.17  // 300/72 for 300 DPI
+            });
+        }
+        
+        function exportEmbedded() {
+            // Get current plot data
+            const plotDiv = document.getElementById('heatmap');
+            const figureData = {
+                data: plotDiv.data,
+                layout: plotDiv.layout
+            };
+            
+            // Create embedded HTML
+            const embeddedHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing Campaign Performance Heatmap</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"><\/script>
+    <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Karla', sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #heatmap {
+            width: 100%;
+            height: 850px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="heatmap"></div>
+    </div>
+    <script>
+        const figureData = ${JSON.stringify(figureData)};
+        Plotly.newPlot('heatmap', figureData.data, figureData.layout, {
+            displayModeBar: false,
+            staticPlot: false,
+            responsive: true
+        });
+    <\/script>
+</body>
+</html>`;
+            
+            // Download the file
+            const blob = new Blob([embeddedHTML], {type: 'text/html'});
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'heatmap_embedded.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
